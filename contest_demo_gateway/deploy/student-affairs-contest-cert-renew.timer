@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily renewal check for 学事智办比赛演示 TLS certificate
+
+[Timer]
+OnCalendar=*-*-* 03:19:00
+Persistent=true
+RandomizedDelaySec=15m
+Unit=student-affairs-contest-cert-renew.service
+
+[Install]
+WantedBy=timers.target

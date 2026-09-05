@@ -1,0 +1,13 @@
+{
+  "name": "student-affairs-demo-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "学事智办比赛演示用 HTTPS API 的无依赖 Node 实现",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test",
+    "migrate:v03": "node scripts/migrate_state_v03.mjs",
+    "e2e:p35": "node scripts/e2e_p35.mjs"
+  }
+}
