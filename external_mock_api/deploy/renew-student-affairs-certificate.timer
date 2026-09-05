@@ -1,0 +1,10 @@
+[Unit]
+Description=每日检查学事智办 DEMO API TLS 证书
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

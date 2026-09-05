@@ -1,0 +1,25 @@
+[Unit]
+Description=学事智办合成数据演示 API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=studentaffairs
+Group=studentaffairs
+WorkingDirectory=/opt/student-affairs-demo-api
+EnvironmentFile=/etc/student-affairs-api/service.env
+ExecStart=/usr/bin/node /opt/student-affairs-demo-api/src/server.mjs
+Restart=on-failure
+RestartSec=3
+
+# 服务代码只读，状态仅允许写入专用目录，避免进程误改系统或其他站点文件。
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/student-affairs-api
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

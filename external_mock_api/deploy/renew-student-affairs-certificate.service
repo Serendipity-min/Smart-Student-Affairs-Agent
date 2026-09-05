@@ -1,0 +1,6 @@
+[Unit]
+Description=续期学事智办 DEMO API TLS 证书
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/renew-student-affairs-certificate
