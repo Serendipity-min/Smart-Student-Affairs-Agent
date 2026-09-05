@@ -1,0 +1,13 @@
+[Unit]
+Description=Renew 学事智办比赛演示 TLS certificate
+After=network-online.target nginx.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# lego v5 将证书续期统一收敛至 run；renew-days 仅在到期窗口内续期，避免每日重复签发。
+ExecStart=/opt/student-affairs-contest-demo/bin/lego run --accept-tos --path /etc/student-affairs-contest-demo/acme --http --http.webroot /var/lib/acme/student-affairs-contest-demo --domains student-affairs.serendipituwpt.art --renew-days 30
+ExecStartPost=/usr/bin/install -o root -g root -m 0644 /etc/student-affairs-contest-demo/acme/certificates/student-affairs.serendipituwpt.art.crt /etc/nginx/ssl/student-affairs.serendipituwpt.art/fullchain.crt
+ExecStartPost=/usr/bin/install -o root -g root -m 0600 /etc/student-affairs-contest-demo/acme/certificates/student-affairs.serendipituwpt.art.key /etc/nginx/ssl/student-affairs.serendipituwpt.art/private.key
+ExecStartPost=/usr/sbin/nginx -t
+ExecStartPost=/usr/bin/systemctl reload nginx
