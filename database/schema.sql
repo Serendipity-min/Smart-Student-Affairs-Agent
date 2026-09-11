@@ -79,7 +79,11 @@ CREATE TABLE policy_document (
     ),
     source_id TEXT REFERENCES source_document(source_id),
     local_path TEXT,
-    notes TEXT
+    notes TEXT,
+    -- Scope 是可查询的数据治理边界，不能仅依赖备注区分正式制度与比赛配置。
+    scope TEXT NOT NULL DEFAULT 'OFFICIAL_POLICY' CHECK (
+        scope IN ('OFFICIAL_POLICY', 'DEMO_WORKFLOW', 'PUBLIC_SERVICE', 'SYNTHETIC_DEMO')
+    )
 );
 
 CREATE TABLE policy_rule (
@@ -91,7 +95,10 @@ CREATE TABLE policy_rule (
     machine_summary TEXT NOT NULL,
     requires_human_confirmation INTEGER NOT NULL DEFAULT 0
         CHECK (requires_human_confirmation IN (0, 1)),
-    source_id TEXT REFERENCES source_document(source_id)
+    source_id TEXT REFERENCES source_document(source_id),
+    scope TEXT NOT NULL DEFAULT 'OFFICIAL_POLICY' CHECK (
+        scope IN ('OFFICIAL_POLICY', 'DEMO_WORKFLOW', 'PUBLIC_SERVICE', 'SYNTHETIC_DEMO')
+    )
 );
 
 -- 自然月不能简单折算为30天，因此同时保留天数边界和calendar_month_limit。
@@ -108,6 +115,9 @@ CREATE TABLE approval_route (
     terminal_action TEXT NOT NULL,
     rule_id TEXT NOT NULL REFERENCES policy_rule(rule_id),
     is_official INTEGER NOT NULL CHECK (is_official IN (0, 1)),
+    scope TEXT NOT NULL DEFAULT 'OFFICIAL_POLICY' CHECK (
+        scope IN ('OFFICIAL_POLICY', 'DEMO_WORKFLOW', 'PUBLIC_SERVICE', 'SYNTHETIC_DEMO')
+    ),
     CHECK (NOT (internship_only = 1 AND non_internship_only = 1))
 );
 
@@ -123,6 +133,34 @@ CREATE TABLE public_contact (
         CHECK (emergency_level IN ('normal', 'urgent', 'emergency')),
     source_id TEXT NOT NULL REFERENCES source_document(source_id),
     verified_at TEXT NOT NULL
+);
+
+-- 检索层只保存结构化短摘要与来源定位，不复制未授权的制度全文。
+CREATE TABLE knowledge_item (
+    knowledge_id TEXT PRIMARY KEY,
+    scope TEXT NOT NULL CHECK (scope IN ('OFFICIAL_POLICY', 'DEMO_WORKFLOW', 'PUBLIC_SERVICE', 'SYNTHETIC_DEMO')),
+    topic TEXT NOT NULL,
+    canonical_question TEXT NOT NULL,
+    answer_summary TEXT NOT NULL,
+    source_id TEXT REFERENCES source_document(source_id),
+    policy_id TEXT REFERENCES policy_document(policy_id),
+    rule_id TEXT REFERENCES policy_rule(rule_id),
+    source_locator TEXT,
+    authority_level TEXT CHECK (authority_level IN ('A', 'B', 'C', 'DEMO')),
+    effective_status TEXT NOT NULL CHECK (effective_status IN ('current', 'historical', 'metadata_only', 'demo_only')),
+    verified_at TEXT,
+    keywords TEXT NOT NULL,
+    requires_human_confirmation INTEGER NOT NULL DEFAULT 0 CHECK (requires_human_confirmation IN (0, 1)),
+    notes TEXT,
+    CHECK ((scope = 'OFFICIAL_POLICY' AND source_id IS NOT NULL) OR scope <> 'OFFICIAL_POLICY')
+);
+
+CREATE TABLE knowledge_alias (
+    alias_id TEXT PRIMARY KEY,
+    knowledge_id TEXT NOT NULL REFERENCES knowledge_item(knowledge_id) ON DELETE CASCADE,
+    alias_text TEXT NOT NULL,
+    alias_type TEXT NOT NULL CHECK (alias_type IN ('synonym', 'natural_language', 'abbreviation')),
+    UNIQUE (knowledge_id, alias_text)
 );
 
 -- 以下表只承载比赛用合成身份；is_synthetic=1 是硬约束，避免误混真实数据。
@@ -179,7 +217,7 @@ CREATE TABLE leave_application (
     request_id TEXT NOT NULL UNIQUE CHECK (request_id LIKE 'DEMO-%'),
     student_id TEXT NOT NULL REFERENCES demo_student_profile(student_id),
     leave_type TEXT NOT NULL CHECK (
-        leave_type IN ('sick', 'personal', 'official_activity', 'internship', 'other')
+        leave_type IN ('sick', 'personal', 'official_activity', 'other')
     ),
     reason_category TEXT NOT NULL,
     reason_summary TEXT NOT NULL,
@@ -284,6 +322,9 @@ CREATE INDEX idx_leave_student_status ON leave_application(student_id, status);
 CREATE INDEX idx_leave_time_range ON leave_application(start_at, end_at);
 CREATE INDEX idx_action_application_time ON approval_action(application_id, action_at);
 CREATE INDEX idx_tool_request ON tool_call_log(request_id, called_at);
+CREATE INDEX idx_knowledge_scope_topic ON knowledge_item(scope, topic);
+CREATE INDEX idx_knowledge_source ON knowledge_item(source_id);
+CREATE INDEX idx_knowledge_alias_text ON knowledge_alias(alias_text);
 
 COMMIT;
 

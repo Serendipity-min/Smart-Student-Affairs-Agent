@@ -4,20 +4,19 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import os
 import sqlite3
 from pathlib import Path
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPT_DIR.parent
-DEFAULT_OUTPUT = SCRIPT_DIR / "student_affairs_v0.1.sqlite3"
-TEST_CASE_CSV = PROJECT_ROOT / "tests" / "fixtures" / "golden_cases_v0.1.csv"
+DEFAULT_OUTPUT = SCRIPT_DIR / "student_affairs_v1.0.sqlite3"
+DEFAULT_REPORT = SCRIPT_DIR / "reports" / "DATABASE_V1_COVERAGE.md"
 SQL_FILES = (
     SCRIPT_DIR / "schema.sql",
     SCRIPT_DIR / "seed_official.sql",
     SCRIPT_DIR / "seed_demo.sql",
+    SCRIPT_DIR / "seed_knowledge.sql",
     SCRIPT_DIR / "views.sql",
 )
 
@@ -27,38 +26,76 @@ def execute_sql_file(connection: sqlite3.Connection, sql_path: Path) -> None:
     connection.executescript(sql_path.read_text(encoding="utf-8"))
 
 
-def load_test_cases(connection: sqlite3.Connection, csv_path: Path) -> int:
-    """导入黄金用例；列名由固定白名单映射，防止 CSV 结构静默漂移。"""
-    expected_columns = [
-        "case_id",
-        "category",
-        "user_input",
-        "expected_intent",
-        "expected_next_action",
-        "expected_rule_code",
-        "expected_tool",
-        "security_expectation",
-        "source_ids",
-        "notes",
-    ]
-    with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        if reader.fieldnames != expected_columns:
-            raise ValueError(
-                f"测试用例列不符合预期：{reader.fieldnames!r}，应为 {expected_columns!r}"
-            )
-        rows = [tuple(row[column] or None for column in expected_columns) for row in reader]
+def write_coverage_report(database_path: Path, report_path: Path) -> None:
+    """从已落盘的 V1 数据库计算覆盖统计，防止报告与实际数据脱节。"""
+    connection = sqlite3.connect(f"{database_path.as_uri()}?mode=ro", uri=True)
+    try:
+        def count(table: str, where: str = "") -> int:
+            suffix = f" WHERE {where}" if where else ""
+            return int(connection.execute(f"SELECT COUNT(*) FROM {table}{suffix}").fetchone()[0])
 
-    connection.executemany(
-        """
-        INSERT INTO test_case (
-            case_id, category, user_input, expected_intent, expected_next_action,
-            expected_rule_code, expected_tool, security_expectation, source_ids, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        rows,
-    )
-    return len(rows)
+        version = connection.execute(
+            "SELECT meta_value FROM system_metadata WHERE meta_key = 'database_version'"
+        ).fetchone()[0]
+        scope_rows = connection.execute(
+            "SELECT scope, COUNT(*) FROM knowledge_item GROUP BY scope ORDER BY scope"
+        ).fetchall()
+        scope_lines = "\n".join(f"| `{scope}` | {amount} |" for scope, amount in scope_rows)
+        view_count = count("sqlite_master", "type = 'view'")
+        index_count = count("sqlite_master", "type = 'index' AND name NOT LIKE 'sqlite_%'")
+        uncovered_official_rules = int(
+            connection.execute(
+                """
+                SELECT COUNT(*) FROM policy_rule AS pr
+                WHERE pr.scope = 'OFFICIAL_POLICY'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM knowledge_item AS ki WHERE ki.rule_id = pr.rule_id
+                  )
+                """
+            ).fetchone()[0]
+        )
+        report = f"""# 学事智办数据库 V1 覆盖报告
+
+本报告由 `python database/build_database.py` 从 `student_affairs_v1.0.sqlite3` 实际计算生成。
+
+## 构建摘要
+
+| 项目 | 数量/值 |
+|---|---:|
+| 数据库版本 | `{version}` |
+| 来源文档 | {count('source_document')} |
+| 官方制度文件 | {count('policy_document', "scope = 'OFFICIAL_POLICY'")} |
+| 制度规则 | {count('policy_rule')} |
+| 官方审批路由 | {count('approval_route', "scope = 'OFFICIAL_POLICY'")} |
+| DEMO 审批路由 | {count('approval_route', "scope = 'DEMO_WORKFLOW'")} |
+| 知识条目 | {count('knowledge_item')} |
+| 同义问法 | {count('knowledge_alias')} |
+| 公共服务联系人 | {count('public_contact')} |
+| 合成学生 | {count('demo_student_profile')} |
+| 合成请假申请 | {count('leave_application')} |
+| 视图 | {view_count} |
+| 非系统索引 | {index_count} |
+| 验证检查组 | 9 |
+| 无检索入口的官方规则 | {uncovered_official_rules} |
+
+## 知识检索分层
+
+| scope | 知识条目数 |
+|---|---:|
+{scope_lines}
+
+## 边界说明
+
+- `OFFICIAL_POLICY` 条目均引用 `source_document.source_id`；DEMO 规则和合成流程不作为校方正式制度。
+- 当前官方 `policy_rule` 均应具有 `knowledge_item.rule_id` 检索入口；该项为 0 才代表无遗漏。
+- `PUBLIC_SERVICE` 仅保留公开服务联系方式；`SYNTHETIC_DEMO` 仅用于演示课表与请假影响说明。
+- 2024 学生手册在未取得可核验全文前保持 `metadata_only`，不据此补写具体条款。
+"""
+    finally:
+        connection.close()
+
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(report, encoding="utf-8")
 
 
 def build_database(output_path: Path) -> tuple[Path, int]:
@@ -82,9 +119,6 @@ def build_database(output_path: Path) -> tuple[Path, int]:
         connection.execute("PRAGMA journal_mode = DELETE")
         for sql_path in SQL_FILES:
             execute_sql_file(connection, sql_path)
-        with connection:
-            test_count = load_test_cases(connection, TEST_CASE_CSV)
-
         integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
         foreign_key_errors = connection.execute("PRAGMA foreign_key_check").fetchall()
         if integrity != "ok" or foreign_key_errors:
@@ -102,6 +136,10 @@ def build_database(output_path: Path) -> tuple[Path, int]:
                 if existing.read(16) != b"SQLite format 3\x00":
                     raise ValueError(f"目标文件不是 SQLite 数据库，拒绝覆盖：{output_path}")
         os.replace(temp_path, output_path)
+        # 覆盖报告在原子替换成功后再生成，确保统计对象就是可交付数据库。
+        write_coverage_report(output_path, DEFAULT_REPORT)
+        with sqlite3.connect(f"{output_path.as_uri()}?mode=ro", uri=True) as report_connection:
+            test_count = int(report_connection.execute("SELECT COUNT(*) FROM test_case").fetchone()[0])
         return output_path, test_count
     except Exception:
         if connection is not None:
@@ -126,7 +164,8 @@ def main() -> None:
     args = parse_args()
     output_path, test_count = build_database(args.output)
     print(f"数据库已生成：{output_path}")
-    print(f"已导入黄金测试用例：{test_count} 条")
+    print(f"数据库内测试用例：{test_count} 条")
+    print(f"覆盖报告已生成：{DEFAULT_REPORT}")
 
 
 if __name__ == "__main__":

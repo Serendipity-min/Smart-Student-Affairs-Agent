@@ -1,5 +1,22 @@
 BEGIN;
 
+-- 当前比赛流程与学校公开制度分层：以下路由只描述受控 DEMO，不覆盖官方第十二条事实。
+UPDATE policy_document SET scope = 'DEMO_WORKFLOW' WHERE policy_id = 'POLICY-DEMO-LEAVE-0.1';
+UPDATE policy_rule SET scope = 'DEMO_WORKFLOW' WHERE rule_id = 'RULE-DEMO-CONFIRM';
+
+INSERT INTO policy_rule (rule_id, policy_id, article_ref, rule_category, rule_text, machine_summary, requires_human_confirmation, source_id, scope) VALUES
+('RULE-DEMO-LE3-NORMAL','POLICY-DEMO-LEAVE-0.1',NULL,'demo_route','比赛 DEMO：普通请假不超过三天，由辅导员审核。','DEMO配置：≤3天普通请假进入辅导员审核。',0,NULL,'DEMO_WORKFLOW'),
+('RULE-DEMO-GT3-LE1M','POLICY-DEMO-LEAVE-0.1',NULL,'demo_route','比赛 DEMO：普通请假超过三天且不超过一个自然月，依次由辅导员和学院分管教学副院长审核。','DEMO配置：>3天且≤1自然月进入两级审核。',0,NULL,'DEMO_WORKFLOW'),
+('RULE-DEMO-INTERNSHIP-3LEVEL','POLICY-DEMO-LEAVE-0.1',NULL,'demo_route','比赛 DEMO：校外实习状态优先于时长，依次由辅导员、学院分管教学副院长和教务处审核。','DEMO配置：校外实习任意时长进入三级审核。',0,NULL,'DEMO_WORKFLOW'),
+('RULE-DEMO-GT1M-SUSPENSION','POLICY-DEMO-LEAVE-0.1',NULL,'demo_route','比赛 DEMO：非校外实习的普通请假超过一个自然月，提示转人工休学流程。','DEMO配置：>1自然月普通请假转人工休学提示。',1,NULL,'DEMO_WORKFLOW'),
+('RULE-DEMO-SICK-MATERIAL','POLICY-DEMO-LEAVE-0.1',NULL,'demo_material','比赛 DEMO：医院证明为可选声明；无证明仍可提交，审核人可要求补充。','DEMO配置：病假证明可选，审核人可要求补充。',0,NULL,'DEMO_WORKFLOW');
+
+INSERT INTO approval_route (route_id, route_name, min_days_exclusive, max_days_inclusive, calendar_month_limit, internship_only, non_internship_only, approver_sequence, archive_requirement, terminal_action, rule_id, is_official, scope) VALUES
+('ROUTE-DEMO-LE3-NORMAL','DEMO：三天以内普通请假',NULL,3,NULL,0,1,'counselor','demo_record','complete','RULE-DEMO-LE3-NORMAL',0,'DEMO_WORKFLOW'),
+('ROUTE-DEMO-GT3-LE1M','DEMO：超过三天且不超过一自然月',3,NULL,1,0,1,'counselor > teaching_vice_dean','demo_record','complete','RULE-DEMO-GT3-LE1M',0,'DEMO_WORKFLOW'),
+('ROUTE-DEMO-INTERNSHIP-3LEVEL','DEMO：校外实习三级审核',NULL,NULL,NULL,1,0,'counselor > teaching_vice_dean > academic_affairs','demo_record','complete','RULE-DEMO-INTERNSHIP-3LEVEL',0,'DEMO_WORKFLOW'),
+('ROUTE-DEMO-GT1M-SUSPENSION','DEMO：超过一自然月转人工休学',NULL,NULL,NULL,0,1,'manual_handoff','demo_record','suspension_handoff','RULE-DEMO-GT1M-SUSPENSION',0,'DEMO_WORKFLOW');
+
 -- 审批人与学生均为比赛用合成身份，不对应任何真实人员。
 INSERT INTO demo_user (user_id, role, display_name, unit_id) VALUES
 ('DEMO-COUNSELOR-CS','counselor','演示辅导员（计算机学院）','COLLEGE-CS'),
@@ -68,20 +85,20 @@ INSERT INTO demo_course_schedule VALUES
 
 -- 申请覆盖草稿、待确认、审批中、补材料、批准、拒绝、撤回、销假和工具失败等状态。
 INSERT INTO leave_application VALUES
-('DEMO-APP-001','DEMO-REQ-001','DEMO-STU-001','sick','短期身体不适','演示：身体不适，拟请假一天。','2026-09-07 08:00:00','2026-09-07 21:35:00',1,0,0,'approved','ROUTE-LE3-NORMAL',NULL,NULL,'2026-09-06 20:10:00','2026-09-06 20:00:00','2026-09-06 21:00:00'),
-('DEMO-APP-002','DEMO-REQ-002','DEMO-STU-002','personal','家庭事务','演示：处理家庭事务，拟请假三天。','2026-09-14 08:00:00','2026-09-16 21:35:00',3,0,0,'under_review','ROUTE-LE3-NORMAL','counselor',NULL,'2026-09-13 18:20:00','2026-09-13 18:00:00','2026-09-13 18:20:00'),
-('DEMO-APP-003','DEMO-REQ-003','DEMO-STU-003','sick','短期治疗','演示：遵医嘱休息四天，证明为合成附件。','2026-09-21 08:00:00','2026-09-24 21:35:00',4,0,0,'need_more_info','ROUTE-GT3-LE14','teaching_vice_dean',NULL,'2026-09-20 10:15:00','2026-09-20 10:00:00','2026-09-20 11:00:00'),
-('DEMO-APP-004','DEMO-REQ-004','DEMO-STU-004','personal','家庭事务','演示：家庭事务，拟请假十四天。','2026-10-01 08:00:00','2026-10-14 21:35:00',14,0,0,'submitted','ROUTE-GT3-LE14','teaching_vice_dean',NULL,'2026-09-28 09:10:00','2026-09-28 09:00:00','2026-09-28 09:10:00'),
-('DEMO-APP-005','DEMO-REQ-005','DEMO-STU-005','sick','康复休养','演示：康复休养十五天，证明为合成附件。','2026-10-19 08:00:00','2026-11-02 21:35:00',15,0,0,'under_review','ROUTE-GT14-LE1M','academic_affairs',NULL,'2026-10-16 14:20:00','2026-10-16 14:00:00','2026-10-17 09:00:00'),
-('DEMO-APP-006','DEMO-REQ-006','DEMO-STU-006','internship','校外实习事务','演示：校外实习期间请假两天。','2026-11-09 08:00:00','2026-11-10 21:35:00',2,1,0,'approved','ROUTE-LE3-INTERNSHIP',NULL,NULL,'2026-11-08 12:10:00','2026-11-08 12:00:00','2026-11-08 18:00:00'),
-('DEMO-APP-007','DEMO-REQ-007','DEMO-STU-007','personal','家庭事务','演示：请假草稿，尚未确认起止时段。','2026-11-16 08:00:00','2026-11-17 21:35:00',2,0,0,'pending_confirmation','ROUTE-LE3-NORMAL',NULL,NULL,NULL,'2026-11-15 19:00:00','2026-11-15 19:00:00'),
-('DEMO-APP-008','DEMO-REQ-008','DEMO-STU-008','official_activity','校外竞赛','演示：参加校外竞赛，申请五天。','2026-11-23 08:00:00','2026-11-27 21:35:00',5,0,0,'rejected','ROUTE-GT3-LE14',NULL,NULL,'2026-11-19 09:20:00','2026-11-19 09:00:00','2026-11-20 16:00:00'),
-('DEMO-APP-009','DEMO-REQ-009','DEMO-STU-009','personal','个人事务','演示：个人事务申请，提交前主动撤回。','2026-12-01 08:00:00','2026-12-02 21:35:00',2,0,0,'withdrawn','ROUTE-LE3-NORMAL',NULL,NULL,'2026-11-29 11:10:00','2026-11-29 11:00:00','2026-11-29 12:00:00'),
-('DEMO-APP-010','DEMO-REQ-010','DEMO-STU-010','sick','身体不适','演示：已批准并在返校后完成销假。','2026-12-07 08:00:00','2026-12-08 21:35:00',2,0,0,'cancelled','ROUTE-LE3-NORMAL',NULL,NULL,'2026-12-06 09:10:00','2026-12-06 09:00:00','2026-12-09 08:00:00'),
-('DEMO-APP-011','DEMO-REQ-011','DEMO-STU-011','other','待补充原因','演示：工具调用失败，未产生正式提交。','2026-12-14 08:00:00','2026-12-14 21:35:00',1,0,0,'tool_failed','ROUTE-LE3-NORMAL',NULL,NULL,NULL,'2026-12-13 20:00:00','2026-12-13 20:01:00'),
-('DEMO-APP-012','DEMO-REQ-012','DEMO-STU-012','personal','家庭事务','演示：超过一个月，应转休学流程。','2026-09-01 08:00:00','2026-10-10 21:35:00',40,0,0,'returned','ROUTE-GT1M-SUSPEND',NULL,NULL,'2026-08-28 14:10:00','2026-08-28 14:00:00','2026-08-28 15:00:00'),
-('DEMO-APP-013','DEMO-REQ-013','DEMO-STU-001','sick','恢复期延长','演示：由原申请发起续假两天。','2026-09-08 08:00:00','2026-09-09 21:35:00',2,0,0,'approved','ROUTE-LE3-NORMAL',NULL,'DEMO-APP-001','2026-09-07 18:15:00','2026-09-07 18:00:00','2026-09-07 20:00:00'),
-('DEMO-APP-014','DEMO-REQ-014','DEMO-STU-002','personal','特殊原因','演示：事后补办场景，转人工复核。','2026-09-01 08:00:00','2026-09-02 21:35:00',2,0,1,'need_more_info','ROUTE-LE3-NORMAL','counselor',NULL,'2026-09-03 10:10:00','2026-09-03 10:00:00','2026-09-03 10:30:00');
+('DEMO-APP-001','DEMO-REQ-001','DEMO-STU-001','sick','短期身体不适','演示：身体不适，拟请假一天。','2026-09-07 08:00:00','2026-09-07 21:35:00',1,0,0,'approved','ROUTE-DEMO-LE3-NORMAL',NULL,NULL,'2026-09-06 20:10:00','2026-09-06 20:00:00','2026-09-06 21:00:00'),
+('DEMO-APP-002','DEMO-REQ-002','DEMO-STU-002','personal','家庭事务','演示：处理家庭事务，拟请假三天。','2026-09-14 08:00:00','2026-09-16 21:35:00',3,0,0,'under_review','ROUTE-DEMO-LE3-NORMAL','counselor',NULL,'2026-09-13 18:20:00','2026-09-13 18:00:00','2026-09-13 18:20:00'),
+('DEMO-APP-003','DEMO-REQ-003','DEMO-STU-003','sick','短期治疗','演示：遵医嘱休息四天，证明为合成附件。','2026-09-21 08:00:00','2026-09-24 21:35:00',4,0,0,'need_more_info','ROUTE-DEMO-GT3-LE1M','teaching_vice_dean',NULL,'2026-09-20 10:15:00','2026-09-20 10:00:00','2026-09-20 11:00:00'),
+('DEMO-APP-004','DEMO-REQ-004','DEMO-STU-004','personal','家庭事务','演示：家庭事务，拟请假十四天。','2026-10-01 08:00:00','2026-10-14 21:35:00',14,0,0,'submitted','ROUTE-DEMO-GT3-LE1M','teaching_vice_dean',NULL,'2026-09-28 09:10:00','2026-09-28 09:00:00','2026-09-28 09:10:00'),
+('DEMO-APP-005','DEMO-REQ-005','DEMO-STU-005','sick','康复休养','演示：康复休养十五天，证明为合成附件。','2026-10-19 08:00:00','2026-11-02 21:35:00',15,0,0,'under_review','ROUTE-DEMO-GT3-LE1M','teaching_vice_dean',NULL,'2026-10-16 14:20:00','2026-10-16 14:00:00','2026-10-17 09:00:00'),
+('DEMO-APP-006','DEMO-REQ-006','DEMO-STU-006','other','校外实习事务','演示：校外实习期间请假两天。','2026-11-09 08:00:00','2026-11-10 21:35:00',2,1,0,'approved','ROUTE-DEMO-INTERNSHIP-3LEVEL',NULL,NULL,'2026-11-08 12:10:00','2026-11-08 12:00:00','2026-11-08 18:00:00'),
+('DEMO-APP-007','DEMO-REQ-007','DEMO-STU-007','personal','家庭事务','演示：请假草稿，尚未确认起止时段。','2026-11-16 08:00:00','2026-11-17 21:35:00',2,0,0,'pending_confirmation','ROUTE-DEMO-LE3-NORMAL',NULL,NULL,NULL,'2026-11-15 19:00:00','2026-11-15 19:00:00'),
+('DEMO-APP-008','DEMO-REQ-008','DEMO-STU-008','official_activity','校外竞赛','演示：参加校外竞赛，申请五天。','2026-11-23 08:00:00','2026-11-27 21:35:00',5,0,0,'rejected','ROUTE-DEMO-GT3-LE1M',NULL,NULL,'2026-11-19 09:20:00','2026-11-19 09:00:00','2026-11-20 16:00:00'),
+('DEMO-APP-009','DEMO-REQ-009','DEMO-STU-009','personal','个人事务','演示：个人事务申请，提交前主动撤回。','2026-12-01 08:00:00','2026-12-02 21:35:00',2,0,0,'withdrawn','ROUTE-DEMO-LE3-NORMAL',NULL,NULL,'2026-11-29 11:10:00','2026-11-29 11:00:00','2026-11-29 12:00:00'),
+('DEMO-APP-010','DEMO-REQ-010','DEMO-STU-010','sick','身体不适','演示：已批准并在返校后完成销假。','2026-12-07 08:00:00','2026-12-08 21:35:00',2,0,0,'cancelled','ROUTE-DEMO-LE3-NORMAL',NULL,NULL,'2026-12-06 09:10:00','2026-12-06 09:00:00','2026-12-09 08:00:00'),
+('DEMO-APP-011','DEMO-REQ-011','DEMO-STU-011','other','待补充原因','演示：工具调用失败，未产生正式提交。','2026-12-14 08:00:00','2026-12-14 21:35:00',1,0,0,'tool_failed','ROUTE-DEMO-LE3-NORMAL',NULL,NULL,NULL,'2026-12-13 20:00:00','2026-12-13 20:01:00'),
+('DEMO-APP-012','DEMO-REQ-012','DEMO-STU-012','personal','家庭事务','演示：超过一个月，应转休学流程。','2026-09-01 08:00:00','2026-10-10 21:35:00',40,0,0,'returned','ROUTE-DEMO-GT1M-SUSPENSION',NULL,NULL,'2026-08-28 14:10:00','2026-08-28 14:00:00','2026-08-28 15:00:00'),
+('DEMO-APP-013','DEMO-REQ-013','DEMO-STU-001','sick','恢复期延长','演示：由原申请发起续假两天。','2026-09-08 08:00:00','2026-09-09 21:35:00',2,0,0,'approved','ROUTE-DEMO-LE3-NORMAL',NULL,'DEMO-APP-001','2026-09-07 18:15:00','2026-09-07 18:00:00','2026-09-07 20:00:00'),
+('DEMO-APP-014','DEMO-REQ-014','DEMO-STU-002','personal','特殊原因','演示：事后补办场景，转人工复核。','2026-09-01 08:00:00','2026-09-02 21:35:00',2,0,1,'need_more_info','ROUTE-DEMO-LE3-NORMAL','counselor',NULL,'2026-09-03 10:10:00','2026-09-03 10:00:00','2026-09-03 10:30:00');
 
 INSERT INTO leave_course_impact VALUES
 ('DEMO-IMPACT-001','DEMO-APP-001','DEMO-SCH-001','2026-09-07',2),
@@ -119,11 +136,11 @@ INSERT INTO approval_action VALUES
 ('DEMO-ACTION-015','DEMO-APP-014','DEMO-COUNSELOR-CS','counselor','request_more_info','submitted','need_more_info','事后补办需核验特殊原因和委托情况','2026-09-03 10:30:00');
 
 INSERT INTO tool_call_log VALUES
-('DEMO-LOG-001','DEMO-REQ-001','calculate_leave_route','DEMO-STU-001','DEMO-APP-001','1天、非实习场景','OK','匹配ROUTE-LE3-NORMAL',0,'2026-09-06 20:02:00',18),
+('DEMO-LOG-001','DEMO-REQ-001','calculate_leave_route','DEMO-STU-001','DEMO-APP-001','1天、非实习场景','OK','匹配ROUTE-DEMO-LE3-NORMAL',0,'2026-09-06 20:02:00',18),
 ('DEMO-LOG-002','DEMO-REQ-001','submit_leave_application','DEMO-STU-001','DEMO-APP-001','已确认的脱敏申请摘要','OK','申请已提交',0,'2026-09-06 20:10:00',65),
-('DEMO-LOG-003','DEMO-REQ-003','calculate_leave_route','DEMO-STU-003','DEMO-APP-003','4天病假、非实习场景','OK','匹配ROUTE-GT3-LE14',0,'2026-09-20 10:02:00',22),
-('DEMO-LOG-004','DEMO-REQ-005','calculate_leave_route','DEMO-STU-005','DEMO-APP-005','15天病假、非实习场景','OK','匹配ROUTE-GT14-LE1M，需人工确认自然月边界',0,'2026-10-16 14:02:00',25),
-('DEMO-LOG-005','DEMO-REQ-006','calculate_leave_route','DEMO-STU-006','DEMO-APP-006','2天、校外实习场景','OK','匹配ROUTE-LE3-INTERNSHIP',0,'2026-11-08 12:02:00',19),
+('DEMO-LOG-003','DEMO-REQ-003','calculate_leave_route','DEMO-STU-003','DEMO-APP-003','4天病假、非实习场景','OK','匹配ROUTE-DEMO-GT3-LE1M',0,'2026-09-20 10:02:00',22),
+('DEMO-LOG-004','DEMO-REQ-005','calculate_leave_route','DEMO-STU-005','DEMO-APP-005','15天病假、非实习场景','OK','匹配ROUTE-DEMO-GT3-LE1M，需人工确认自然月边界',0,'2026-10-16 14:02:00',25),
+('DEMO-LOG-005','DEMO-REQ-006','calculate_leave_route','DEMO-STU-006','DEMO-APP-006','2天、校外实习场景','OK','匹配ROUTE-DEMO-INTERNSHIP-3LEVEL',0,'2026-11-08 12:02:00',19),
 ('DEMO-LOG-006','DEMO-REQ-009','withdraw_leave_application','DEMO-STU-009','DEMO-APP-009','本人撤回未办结申请','OK','申请已撤回',0,'2026-11-29 12:00:00',41),
 ('DEMO-LOG-007','DEMO-REQ-010','cancel_leave','DEMO-STU-010','DEMO-APP-010','本人返校后销假','OK','销假完成',0,'2026-12-09 08:00:00',38),
 ('DEMO-LOG-008','DEMO-REQ-011','create_leave_draft','DEMO-STU-011','DEMO-APP-011','字段不完整的脱敏摘要','UPSTREAM_TIMEOUT','上游演示服务超时，未提交',0,'2026-12-13 20:01:00',3000),

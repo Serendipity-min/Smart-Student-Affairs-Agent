@@ -12,6 +12,7 @@ SELECT
     ar.approver_sequence,
     ar.archive_requirement,
     ar.terminal_action,
+    ar.scope,
     pr.article_ref,
     pr.machine_summary,
     ar.is_official,
@@ -32,6 +33,8 @@ SELECT
     la.duration_days,
     la.status,
     ar.route_name,
+    -- 申请总览保留路由 scope，避免前端或导出将 DEMO 事务误读为官方流程。
+    ar.scope AS route_scope,
     la.current_assignee_role,
     la.created_at,
     la.updated_at
@@ -53,6 +56,26 @@ FROM source_document AS sd
 LEFT JOIN policy_rule AS pr ON pr.source_id = sd.source_id
 LEFT JOIN public_contact AS pc ON pc.source_id = sd.source_id
 GROUP BY sd.source_id, sd.title, sd.authority_level, sd.verification_status;
+
+CREATE VIEW v_knowledge_retrieval AS
+SELECT
+    ki.knowledge_id,
+    ki.scope,
+    ki.topic,
+    ki.canonical_question,
+    ki.answer_summary,
+    COALESCE(GROUP_CONCAT(ka.alias_text, ' | '), '') AS aliases,
+    ki.source_id,
+    sd.title AS source_title,
+    sd.url AS source_url,
+    ki.source_locator,
+    ki.authority_level,
+    ki.verified_at,
+    ki.requires_human_confirmation
+FROM knowledge_item AS ki
+LEFT JOIN source_document AS sd ON sd.source_id = ki.source_id
+LEFT JOIN knowledge_alias AS ka ON ka.knowledge_id = ki.knowledge_id
+GROUP BY ki.knowledge_id;
 
 COMMIT;
 

@@ -1,12 +1,12 @@
 BEGIN;
 
 INSERT INTO system_metadata (meta_key, meta_value) VALUES
-('database_name', '学事智办初版数据库'),
-('database_version', '0.1.0'),
+('database_name', '学事智办补充数据库'),
+('database_version', '1.0.0'),
 ('school_example', '阜阳师范大学'),
 ('data_boundary', '官方公开事实 + DEMO前缀合成数据；不含真实学生个人信息'),
 ('verified_at', '2026-07-31'),
-('build_schema_version', '1');
+('build_schema_version', '2');
 
 INSERT INTO source_document VALUES
 ('S001','阜阳师范大学本科生学籍管理实施细则','阜阳师范大学教务处','official_page','https://www.fynu.edu.cn/jwc/info/1019/1820.htm','2021-09-01','2026-07-31','A','verified',NULL,NULL,'页面提供正式PDF附件'),
@@ -71,11 +71,11 @@ INSERT INTO class_period VALUES
 (10,'19:55','20:40','S005'),
 (11,'20:50','21:35','S005');
 
-INSERT INTO policy_document VALUES
+INSERT INTO policy_document (policy_id, policy_name, version_label, published_at, effective_status, source_id, local_path, notes) VALUES
 ('POLICY-STUDENT-STATUS-2021','阜阳师范大学本科生学籍管理实施细则','2021版','2021-09-01','current_public','S002','knowledge_base/sources/raw/阜阳师范大学本科生学籍管理实施细则_2021.pdf','当前官网可公开核验版本；正式生产前仍需校方确认现行状态'),
 ('POLICY-DEMO-LEAVE-0.1','比赛演示补充规则','0.1',NULL,'demo_only',NULL,'knowledge_base/90_比赛演示补充规则_V0.1.md','非学校正式制度');
 
-INSERT INTO policy_rule VALUES
+INSERT INTO policy_rule (rule_id, policy_id, article_ref, rule_category, rule_text, machine_summary, requires_human_confirmation, source_id) VALUES
 ('RULE-LEAVE-PRIOR-WRITTEN','POLICY-STUDENT-STATUS-2021','第十二条','application','学生请假须事先提出书面申请。','所有请假先收集必要字段并形成书面申请。',0,'S002'),
 ('RULE-LEAVE-SICK-PROOF','POLICY-STUDENT-STATUS-2021','第十二条','evidence','病假须有医院证明。','病假必须追问医院证明；具体格式需人工确认。',1,'S002'),
 ('RULE-LEAVE-3D','POLICY-STUDENT-STATUS-2021','第十二条','approval','请假三天以内，由辅导员批准；校外实习期间由实习带队负责人批准，并报学院备案。','小于等于3天按是否校外实习分流，批准后报学院备案。',0,'S002'),
@@ -88,12 +88,14 @@ INSERT INTO policy_rule VALUES
 ('RULE-ABSENCE-SUSPENSION','POLICY-STUDENT-STATUS-2021','第三十七条','suspension','一学期因请假缺课累计超过该学期总学时三分之一，应办理休学手续。','累计缺课接近三分之一时预警并转人工核算。',1,'S002'),
 ('RULE-DEMO-CONFIRM','POLICY-DEMO-LEAVE-0.1',NULL,'demo_workflow','演示申请在二次确认后提交。','先生成摘要并要求用户明确确认。',0,NULL);
 
-INSERT INTO approval_route VALUES
+INSERT INTO approval_route (route_id, route_name, min_days_exclusive, max_days_inclusive, calendar_month_limit, internship_only, non_internship_only, approver_sequence, archive_requirement, terminal_action, rule_id, is_official) VALUES
 ('ROUTE-LE3-NORMAL','三天以内（普通场景）',NULL,3,NULL,0,1,'counselor','college_record','leave_approval','RULE-LEAVE-3D',1),
 ('ROUTE-LE3-INTERNSHIP','三天以内（校外实习）',NULL,3,NULL,1,0,'internship_leader','college_record','leave_approval','RULE-LEAVE-3D',1),
 ('ROUTE-GT3-LE14','超过三天、两周以内',3,14,NULL,0,0,'teaching_vice_dean','college_record','leave_approval','RULE-LEAVE-14D',1),
 ('ROUTE-GT14-LE1M','超过两周、一个月以内',14,NULL,1,0,0,'teaching_vice_dean > academic_affairs','university_record','leave_approval','RULE-LEAVE-1M',1),
 ('ROUTE-GT1M-SUSPEND','超过一个月',NULL,NULL,NULL,0,0,'college > academic_affairs','university_record','suspension_procedure','RULE-LEAVE-OVER-1M',1);
+
+-- 初版保留的学校制度行仍为官方来源；比赛配置在 seed_demo.sql 中单独插入。
 
 INSERT INTO public_contact VALUES
 ('CONTACT-XSC-HEAD','UNIT-XSC','学生工作处部门负责人','phone','0558-2595339',NULL,'CAMPUS-XH','normal','S010','2026-07-31'),
