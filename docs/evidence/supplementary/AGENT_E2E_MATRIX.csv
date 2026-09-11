@@ -1,0 +1,23 @@
+﻿test_section,case_id,description,details,duration_ms,passed
+T01 Policy QA,T01-1,学生请假必须要提出书面申请吗？,"cite=True, no_demo_confusion=True, preview=是的，学生请假必须提出书面申请。
+
+根据《阜阳师范大学本科生学籍管理实施细则》第十二条的规定，学生请假须事先提出书面申请...",2054,PASS
+T01 Policy QA,T01-2,假期结束后如何办理销假或续假？,"cite=True, no_demo_confusion=True, preview=根据学校公开的学籍管理实施细则，假期结束后的销假与续假办理规则如下：
+
+**1. 已按期返校：及时销假**
+学生应在假期...",3764,PASS
+T01 Policy QA,T01-3,新生如果不能按时报到应该怎么请假？,"cite=True, no_demo_confusion=True, preview=新生如果不能按时报到，应当**事先请假**，且请假时间一般**不超过一周**。
+
+如果新生未请假或请假逾期超过两周不报到...",1741,PASS
+T01 Policy QA,T01-4,请假超过一个月在学校公开细则中有什么规定？,"cite=True, no_demo_confusion=True, preview=根据学校公开细则的规定，请假超过一个月**不应继续走普通请假流程**，而应办理**休学手续**。
+
+具体执行要求如下：
+...",2769,PASS
+T01 Policy QA,T01-5,因请假累计缺课达到多少需要办理休学？,"cite=True, no_demo_confusion=True, preview=根据学校官方规定，一学期因请假缺课累计超过该学期总学时三分之一的，应办理休学手续。具体课时核算由学院和教务处确认。...",1242,PASS
+T01 Policy QA,T01-6,学校保卫处校园报警电话是多少？,"cite=True, no_demo_confusion=True, preview=学校保卫处的校园报警电话为 0558-2561110，校内短号为 8110。如果遇到紧急违法犯罪或人身危险等紧急情况，请...",1330,PASS
+T02 Leave Apply,T02-A,4天普通事假路由预览,"route_node=True, route_id=ROUTE-GT3-LE1M, approvers=['counselor', 'teaching_vice_dean'], ready=True",700,PASS
+T02 Leave Apply,T02-B,病假无证明可先提交,"route_node=True, route_id=ROUTE-LE3-NORMAL, approvers=['counselor'], ready=True",247,PASS
+T02 Leave Apply,T02-C,校外实习三级审批,"route_node=True, route_id=ROUTE-INTERNSHIP-3LEVEL, approvers=['counselor', 'teaching_vice_dean', 'academic_affairs'], ready=True",228,PASS
+T02 Leave Apply,T02-D,超过一自然月转休学提示,"route_node=True, route_id=ROUTE-GT1M-SUSPENSION, approvers=[], ready=False",268,PASS
+Confirmation Gate,GATE-01,预览未确认不产生写入,"Initial counselor tasks=0, after preview and abort tasks=0",0,PASS
+Reviewer + T03 E2E,E2E-MAIN-01,4天事假全流程审批与T03同ID状态回查,"App ID: DEMO-APP-E55132CDF4A0, Status: approved, T03 node executed: True",0,PASS

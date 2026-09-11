@@ -1,0 +1,8 @@
+﻿case_id,name,repetitions,distinct_outputs_count,route_id,approver_sequence,ready_to_submit,is_consistent,passed
+R01,普通 1 天请假 (R01),20,1,ROUTE-LE3-NORMAL,"[""counselor""]",True,TRUE,PASS
+R03,普通 4 天请假 (R03),20,1,ROUTE-GT3-LE1M,"[""counselor"", ""teaching_vice_dean""]",True,TRUE,PASS
+R05,普通超过一个自然月 (R05),20,1,ROUTE-GT1M-SUSPENSION,[],False,TRUE,PASS
+R06,校外实习 2 天 (R06),20,1,ROUTE-INTERNSHIP-3LEVEL,"[""counselor"", ""teaching_vice_dean"", ""academic_affairs""]",True,TRUE,PASS
+R07,校外实习 40 天 (R07),20,1,ROUTE-INTERNSHIP-3LEVEL,"[""counselor"", ""teaching_vice_dean"", ""academic_affairs""]",True,TRUE,PASS
+R08,病假无证明 (R08),20,1,ROUTE-LE3-NORMAL,"[""counselor""]",True,TRUE,PASS
+R12a,自然月边界: 1月31日~2月28日 (R12a),20,1,ROUTE-GT3-LE1M,"[""counselor"", ""teaching_vice_dean""]",True,TRUE,PASS
